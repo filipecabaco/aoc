@@ -36,7 +36,7 @@ defmodule Alarm do
 end
 
 content =
-  File.read!("./input2_edited.txt")
+  File.read!("./input2")
   |> String.split(",")
   |> Enum.map(&String.to_integer/1)
 

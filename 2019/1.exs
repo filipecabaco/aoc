@@ -10,7 +10,7 @@ defmodule FuelCalculator do
 end
 
 content =
-  File.read!("./input1.txt")
+  File.read!("./input1")
   |> String.split()
   |> Enum.map(&String.to_integer/1)
 
