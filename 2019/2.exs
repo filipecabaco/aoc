@@ -22,29 +22,16 @@ defmodule Alarm do
   defp process_opcode([2, _, _, _] = ops, acc, pos),
     do: (fn res -> process_opcode(Enum.slice(res, pos, 4), res, pos + 4) end).(op(ops, acc, &*/2))
 
-  defp process_opcode(_, acc, _), do: process_opcode([], acc, 0)
+  defp process_opcode(_, _, _), do: raise("Unknown Opcode")
 
-  defp op([_, i1, i2, t], acc, op) when i1 <= length(acc) and i2 <= length(acc) do
-    List.update_at(acc, t, fn _ -> op.(Enum.at(acc, i1), Enum.at(acc, i2)) end)
-  end
-
-  defp op(_, _, _), do: raise("Out of bounds")
+  defp op([_, i1, i2, t], acc, op),
+    do: List.update_at(acc, t, fn _ -> op.(Enum.at(acc, i1), Enum.at(acc, i2)) end)
 
   def find_noun_verb(ops, expected, range) do
     0..range
     |> Stream.flat_map(fn noun -> Stream.map(0..range, fn verb -> {noun, verb} end) end)
-    |> Stream.map(&check_expected(&1, ops, expected))
-    |> Enum.reject(&is_nil/1)
-  end
-
-  defp check_expected({noun, verb}, ops, expected) do
-    ops
-    |> process(noun, verb)
-    |> (fn res ->
-          if res == expected do
-            {noun, verb}
-          end
-        end).()
+    |> Stream.map(fn {noun, verb} -> process(ops, noun, verb) end)
+    |> Enum.filter(&(&1 == expected))
   end
 end
 
@@ -57,4 +44,4 @@ content
 |> Alarm.process(12, 2)
 |> IO.inspect(label: "Solution 1")
 
-IO.inspect(Alarm.find_noun_verb(content, 19_690_720, 99))
+IO.inspect Alarm.find_noun_verb(content, 19_690_720, 99), label: "Solution 2"
