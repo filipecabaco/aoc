@@ -1,16 +1,24 @@
 defmodule Wires do
-  def manhattan_distance(wires) do
-    wires
-    |> intersections
+  def manhattan_distance([w1, w2]) do
+    intersections(path(w1), path(w2))
     |> Enum.map(fn {x, y} -> abs(x + y) end)
     |> Enum.reject(fn v -> v == 0 end)
     |> Enum.sort(fn v1, v2 -> v1 < v2 end)
     |> Enum.at(0)
   end
 
-  def intersections([w1, w2], c \\ [{0, 0}]),
-    do: MapSet.intersection(MapSet.new(path(w1, c)), MapSet.new(path(w2, c)))
+  def closest_intersection([w1, w2]) do
+    p1 = path(w1)
+    p2 = path(w2)
 
+    intersections(p1, p2)
+    |> Enum.map(fn i -> Enum.find_index(p1, &(i == &1)) + Enum.find_index(p2, &(i == &1)) end)
+    |> Enum.reject(fn v -> v == 0 end)
+    |> Enum.min()
+  end
+
+  defp intersections(p1, p2), do: MapSet.intersection(MapSet.new(p1), MapSet.new(p2))
+  defp path(w, acc \\ [{0, 0}])
   defp path([], acc), do: acc
   defp path([d | rest], acc), do: path(rest, acc ++ path_op(d, Enum.at(acc, -1)))
 
@@ -29,8 +37,15 @@ defmodule Wires do
   defp down({x, y}), do: {x, y - 1}
 end
 
-File.read!("./input3")
-|> String.split()
-|> Enum.map(&String.split(&1, ","))
+content =
+  File.read!("./input3")
+  |> String.split()
+  |> Enum.map(&String.split(&1, ","))
+
+content
 |> Wires.manhattan_distance()
 |> IO.inspect(label: "Solution 1")
+
+content
+|> Wires.closest_intersection()
+|> IO.inspect(label: "Solution 2")
