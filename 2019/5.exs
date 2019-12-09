@@ -5,13 +5,12 @@ defmodule Alarm do
 
   defp process_opcode([opcode], args, pos, acc) do
     %{opcode: opcode, par_mode: par_mode} = decompose_opcode(opcode)
-    case opcode do
-      :halt ->
-        acc
 
-      _ ->
-        {pos, acc} = process(opcode, par_mode, args, pos, acc)
-        process_opcode(Enum.slice(acc, pos, 1), Enum.slice(acc, pos + 1, 3), pos, acc)
+    if opcode == :halt do
+      process_opcode([], [], 0, acc)
+    else
+      {pos, acc} = process(opcode, par_mode, args, pos, acc)
+      process_opcode(Enum.slice(acc, pos, 1), Enum.slice(acc, pos + 1, 3), pos, acc)
     end
   end
 
@@ -28,43 +27,42 @@ defmodule Alarm do
   end
 
   defp process(:input, _, [t | _], pos, acc),
-    do: {pos + steps(:input), update(t, &input/1, acc)}
+    do:
+      {pos + steps(:input),
+       update(
+         t,
+         fn _ ->
+           IO.puts("Input value please")
+           IO.read(:stdio, :line) |> String.trim() |> String.to_integer()
+         end,
+         acc
+       )}
 
-  defp process(:output, %{p1: p1}, [a1 | _], pos, acc)
-    do
-      IO.inspect(process_param(p1, a1, acc), label: "Output")
-      {pos + steps(:output), acc}
-    end
+  defp process(:output, %{p1: p1}, [a1 | _], pos, acc) do
+    IO.inspect(process_param(p1, a1, acc), label: "Output")
+    {pos + steps(:output), acc}
+  end
 
   defp process(:jump_true, %{p1: p1, p2: p2}, [a1, a2 | _], pos, acc) do
-    a1 = process_param(p1, a1, acc)
-    a2 = process_param(p2, a2, acc)
-
-    case a1 != 0 do
-      true -> {a2, acc}
+    case process_param(p1, a1, acc) != 0 do
+      true -> {process_param(p2, a2, acc), acc}
       false -> {pos + steps(:jump_true), acc}
     end
   end
 
   defp process(:jump_false, %{p1: p1, p2: p2}, [a1, a2 | _], pos, acc) do
-    a1 = process_param(p1, a1, acc)
-    a2 = process_param(p2, a2, acc)
-
-    case a1 == 0 do
-      true -> {a2, acc}
+    case process_param(p1, a1, acc) == 0 do
+      true -> {process_param(p2, a2, acc), acc}
       false -> {pos + steps(:jump_false), acc}
     end
   end
 
   defp process(:less, %{p1: p1, p2: p2}, [a1, a2, a3], pos, acc) do
-    a1 = process_param(p1, a1, acc)
-    a2 = process_param(p2, a2, acc)
-
     {pos + steps(:less),
      update(
        a3,
        fn _ ->
-         case a1 < a2 do
+         case process_param(p1, a1, acc) < process_param(p2, a2, acc) do
            true -> 1
            false -> 0
          end
@@ -74,14 +72,11 @@ defmodule Alarm do
   end
 
   defp process(:equals, %{p1: p1, p2: p2}, [a1, a2, a3], pos, acc) do
-    a1 = process_param(p1, a1, acc)
-    a2 = process_param(p2, a2, acc)
-
     {pos + steps(:equals),
      update(
        a3,
        fn _ ->
-         case a1 == a2 do
+         case process_param(p1, a1, acc) == process_param(p2, a2, acc) do
            true -> 1
            false -> 0
          end
@@ -90,50 +85,26 @@ defmodule Alarm do
      )}
   end
 
+  defp update(t, op, acc), do: List.update_at(acc, t, op)
+
   defp process_param(:position, i, acc), do: Enum.at(acc, i)
   defp process_param(:immediate, i, _), do: i
 
-  defp update(t, op, acc), do: List.update_at(acc, t, op)
-
-  defp input(_) do
-    IO.puts("Input value please")
-    IO.read(:stdio, :line) |> String.trim() |> String.to_integer()
-  end
-
   defp decompose_opcode(opcode, acc \\ [])
+  defp decompose_opcode(0, [e]), do: param_map(0, 0, 0, 0, e)
+  defp decompose_opcode(0, [d, e]), do: param_map(0, 0, 0, d, e)
+  defp decompose_opcode(0, [c, d, e]), do: param_map(0, 0, c, d, e)
+  defp decompose_opcode(0, [b, c, d, e]), do: param_map(0, b, c, d, e)
+  defp decompose_opcode(0, [a, b, c, d, e]), do: param_map(a, b, c, d, e)
 
-  defp decompose_opcode(0, [e]),
-    do: %{
-      opcode: op("0#{e}"),
-      par_mode: %{p1: param_mode(0), p2: param_mode(0), p3: param_mode(0)}
-    }
+  defp decompose_opcode(opcode, acc),
+    do: decompose_opcode(trunc(opcode / 10), [rem(opcode, 10)] ++ acc)
 
-  defp decompose_opcode(0, [d, e]),
-    do: %{
-      opcode: op("#{d}#{e}"),
-      par_mode: %{p1: param_mode(0), p2: param_mode(0), p3: param_mode(0)}
-    }
-
-  defp decompose_opcode(0, [c, d, e]),
-    do: %{
-      opcode: op("#{d}#{e}"),
-      par_mode: %{p1: param_mode(c), p2: param_mode(0), p3: param_mode(0)}
-    }
-
-  defp decompose_opcode(0, [b, c, d, e]),
-    do: %{
-      opcode: op("#{d}#{e}"),
-      par_mode: %{p1: param_mode(c), p2: param_mode(b), p3: param_mode(0)}
-    }
-
-  defp decompose_opcode(0, [a, b, c, d, e]),
+  defp param_map(a, b, c, d, e),
     do: %{
       opcode: op("#{d}#{e}"),
       par_mode: %{p1: param_mode(c), p2: param_mode(b), p3: param_mode(a)}
     }
-
-  defp decompose_opcode(opcode, acc),
-    do: decompose_opcode(trunc(opcode / 10), [rem(opcode, 10)] ++ acc)
 
   defp op("99"), do: :halt
   defp op("01"), do: :sum
