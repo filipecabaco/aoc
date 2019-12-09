@@ -1,35 +1,44 @@
 defmodule Orbit do
-  def calculate(map) do
-    os = map
-    |> Enum.map(&(String.split(&1,")")))
-    |> Enum.reduce(%{},&orbits/2)
-    |> Map.to_list()
+  def calculate(map),
+    do:
+      orbits(map)
+      |> (fn m -> Enum.map(m, &count(&1, m, [])) end).()
+      |> List.flatten()
+      |> Enum.count()
 
-    os
-    |> Enum.map(&(count(&1, os, [])))
-    |> List.flatten
-    |> Enum.count
-  end
   def transfer(map) do
-    os = map
-    |> Enum.map(&(String.split(&1,")")))
-    |> Enum.reduce(%{},&orbits/2)
-    |> Map.to_list()
+    os =
+      orbits(map)
+      |> (fn m -> Enum.map(m, &count(&1, m, [])) end).()
+      |> Enum.filter(fn v -> Enum.any?(List.flatten(v), &(&1 == "SAN")) end)
+      |> Enum.filter(fn v -> Enum.any?(List.flatten(v), &(&1 == "YOU")) end)
 
-    os
-    |> Enum.map(&(count(&1, os, [])))
-    |> Enum.filter(fn v -> Enum.any?(List.flatten(v), &(&1 == "SAN")) end)
-    |> Enum.filter(fn v -> Enum.any?(List.flatten(v), &(&1 == "YOU")) end)
+    san = os |> Enum.map(&find_person(&1, "SAN", 0)) |> List.flatten() |> Enum.min()
+    you = os |> Enum.map(&find_person(&1, "YOU", 0)) |> List.flatten() |> Enum.min()
+    you + san
   end
 
-  defp orbits([p,o],acc), do: Map.merge(acc, Map.update(acc, p, [o], fn v-> v ++ [o] end))
+  defp orbits(map),
+    do:
+      map
+      |> Enum.map(&String.split(&1, ")"))
+      |> Enum.reduce(%{}, &orbits/2)
+      |> Map.to_list()
 
-  defp count({_,o}, os, acc) do
-    res = os
-    |> Enum.filter(fn {p, _} -> Enum.any?(o, &(&1==p)) end)
-    |> Enum.map(fn v -> count(v,os,[]) end)
+  defp orbits([p, o], acc), do: Map.merge(acc, Map.update(acc, p, [o], fn v -> v ++ [o] end))
 
-    o ++ acc ++ res
+  defp count({_, o}, os, acc),
+    do:
+      os
+      |> Enum.filter(fn {p, _} -> Enum.any?(o, &(&1 == p)) end)
+      |> Enum.map(fn v -> count(v, os, []) end)
+      |> (fn res -> o ++ acc ++ res end).()
+
+  defp find_person(os, person, acc) do
+    case(Enum.any?(os, &(&1 == person))) do
+      true -> acc
+      false -> os |> Enum.filter(&is_list/1) |> Enum.map(&find_person(&1, person, acc + 1))
+    end
   end
 end
 
@@ -38,20 +47,7 @@ File.read!("./input6")
 |> Orbit.calculate()
 |> IO.inspect(label: "Solution 1")
 
-"""
-COM)B
-B)C
-C)D
-D)E
-E)F
-B)G
-G)H
-D)I
-E)J
-J)K
-K)L
-K)YOU
-I)SAN
-"""
+File.read!("./input6")
 |> String.split()
 |> Orbit.transfer()
+|> IO.inspect(label: "Solution 2")
